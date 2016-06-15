@@ -49,6 +49,14 @@ NotificationsComponent.prototype.checkPermissions = function(callback: Function)
 	/* Void */
 };
 
+NotificationsComponent.prototype.getToken = function(callback: Function) {
+    RNPushNotification.getToken(callback);
+}
+
+NotificationsComponent.prototype.subscribeTopic = function(topic: string) {
+    RNPushNotification.subscribeTopic(topic);
+}
+
 NotificationsComponent.prototype.addEventListener = function(type: string, handler: Function) {
 	var listener;
 	if (type === 'notification') {
@@ -84,4 +92,3 @@ module.exports = {
 	state: false,
 	component: new NotificationsComponent()
 };
-

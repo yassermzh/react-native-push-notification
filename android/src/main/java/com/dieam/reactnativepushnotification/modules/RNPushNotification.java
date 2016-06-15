@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -15,18 +16,22 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
+import com.google.android.gms.gcm.GcmPubSub;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.json.*;
 
 import android.content.Context;
+import android.util.Log;
 
 public class RNPushNotification extends ReactContextBaseJavaModule {
     private ReactContext mReactContext;
     private Activity mActivity;
     private RNPushNotificationHelper mRNPushNotificationHelper;
+    private TokenReceiver mTokenReceiver;
 
     public RNPushNotification(ReactApplicationContext reactContext, Activity activity) {
         super(reactContext);
@@ -76,19 +81,19 @@ public class RNPushNotification extends ReactContextBaseJavaModule {
         }
     }
 
+    class JSEventSenderHandler implements JSEventSender {
+        @Override
+        public void sendEvent(String eventName, Object params) {
+            Log.d("push", "JSEventSenderHandler called");
+            RNPushNotification.this.sendEvent(eventName, params);
+        }
+    };
+
     private void registerNotificationsRegistration() {
         IntentFilter intentFilter = new IntentFilter("RNPushNotificationRegisteredToken");
 
-        mReactContext.registerReceiver(new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String token = intent.getStringExtra("token");
-                WritableMap params = Arguments.createMap();
-                params.putString("deviceToken", token);
-
-                sendEvent("remoteNotificationsRegistered", params);
-            }
-        }, intentFilter);
+        mTokenReceiver = new TokenReceiver(new JSEventSenderHandler());
+        mReactContext.registerReceiver(mTokenReceiver, intentFilter);
     }
 
     private void registerNotificationsReceiveNotification() {
@@ -103,7 +108,6 @@ public class RNPushNotification extends ReactContextBaseJavaModule {
 
     private void notifyNotification(Bundle bundle) {
         String bundleString = convertJSON(bundle);
-
         WritableMap params = Arguments.createMap();
         params.putString("dataJSON", bundleString);
 
@@ -150,6 +154,30 @@ public class RNPushNotification extends ReactContextBaseJavaModule {
     public void scheduleLocalNotification(ReadableMap details) {
         Bundle bundle = Arguments.toBundle(details);
         mRNPushNotificationHelper.sendNotificationScheduled(bundle);
+    }
+
+    @ReactMethod
+    public void getToken(Callback callback) {
+        callback.invoke(mTokenReceiver.getToken());
+    }
+
+    /**
+     * Subscribe to any GCM topics of interest, as defined by the TOPICS constant.
+     *
+     * @param topic device topic
+     */
+    @ReactMethod
+    public void subscribeTopic(String topic) {
+        //Log.d("push", "subscribeTopics called, topic=/topics/" + topic);
+        GcmPubSub pubSub = GcmPubSub.getInstance(mReactContext);
+        String token = mTokenReceiver.getToken();
+        //Log.d("push", "subscribeTopics called, token=" + token);
+        try {
+            pubSub.subscribe(token, "/topics/" + topic, null);
+        } catch (IOException e) {
+            // if unable to reach the GCM PubSub service
+            Log.e("push", "failed to subscribe to topic=" + topic);
+        }
     }
 
 }

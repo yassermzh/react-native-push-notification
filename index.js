@@ -226,4 +226,12 @@ Notifications.checkPermissions = function() {
 	return this.callNative('checkPermissions', arguments);
 };
 
+Notifications.getToken = function() {
+        return this.callNative('getToken', arguments);
+}
+
+Notifications.subscribeTopic = function() {
+    return this.callNative('subscribeTopic', arguments);
+}
+
 module.exports = Notifications;
